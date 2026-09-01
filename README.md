@@ -152,7 +152,7 @@ worker registration, which is why this page carries both even though it is not p
 the React app.
 
 It is deliberately a real file rather than a route in the React app. The app is hash
-routed, so `iiest.wiki/download` would otherwise 404 on GitHub Pages. That also means
+routed, so `iiest.wiki/download` would otherwise 404 on a static host. That also means
 the service worker's `navigateFallback` would happily serve the app shell in its place,
 which is what `navigateFallbackDenylist: [/^\/download\//]` prevents.
 
@@ -665,15 +665,7 @@ no server side code and routing is hash based, so no rewrite rules are needed.
 
 ### 1. Push it to GitHub
 
-```sh
-git init -b main
-git add .
-git commit -m "IIEST Shibpur portal"
-gh repo create iiest-portal --public --source=. --push
-```
-
-The repo has to be **public** unless you pay for GitHub Pro. GitHub Pages on a private
-repo is a paid feature, and a private repo will simply refuse to publish.
+The canonical repository is `https://github.com/iiest-wiki/iiest-wiki`.
 
 `.gitignore` already excludes `.cache/`, which holds about 80 MB of downloaded PDFs and
 must not be committed. `public/data/*.json` **should** be committed, that is what makes
@@ -683,38 +675,14 @@ Committing `src/lib/config.js` with your Supabase URL and anon key is expected. 
 key is a public client key and is meant to ship in the browser; row level security is
 what protects the data. Never put the `service_role` key in that file.
 
-### 2. Turn on GitHub Pages
+### 2. Deploy with Vercel
 
-`.github/workflows/deploy.yml` publishes `public/` on every push to `main`. Because it
-deploys through Actions rather than from a branch, the site stays in `public/` and
-nothing has to be moved to the repo root.
+Connect the canonical repository to a Vercel project. Vercel detects Vite and runs
+`npm run build`; there is deliberately no GitHub deployment workflow.
 
-In the repo, Settings, Pages, set **Source** to **GitHub Actions**. Push once and the
-workflow runs; the deployment URL appears in the Actions summary.
-
-To attach your domain, commit a `CNAME` file into the published directory:
-
-```sh
-echo yourdomain.com > public/CNAME
-git add public/CNAME && git commit -m "custom domain" && git push
-```
-
-Then add the DNS records at your registrar. For an apex domain (`yourdomain.com`), four
-`A` records:
-
-```
-185.199.108.153
-185.199.109.153
-185.199.110.153
-185.199.111.153
-```
-
-For a subdomain (`portal.yourdomain.com`), a single `CNAME` to `<user>.github.io`.
-Finally set the same domain under Settings, Pages, Custom domain, and tick Enforce
-HTTPS once the certificate is issued.
-
-Without a custom domain the site lives at `https://<user>.github.io/<repo>/`. Every
-asset path in the app is relative, so it works from that subpath too.
+Attach `iiest.wiki` as the production domain in Vercel and follow the DNS records
+reported by `vercel domains inspect iiest.wiki`. Domain configuration lives in
+Vercel and DNS, not in `public/CNAME`.
 
 ### 3. Point Supabase and Google at the new domain
 
@@ -725,8 +693,7 @@ In Supabase, Authentication, URL Configuration:
 
 - **Site URL**: `https://yourdomain.com`
 - **Redirect URLs**: add `https://yourdomain.com/**`, keep `http://localhost:8000/**`
-  for local testing, and add `https://<user>.github.io/<repo>/**` too if you ever open
-  the site at its default Pages address, since that is a different origin
+  for local testing, and add the Vercel preview URL if sign-in is needed on previews
 
 In Google Cloud, APIs and Services, Credentials, your OAuth client:
 
@@ -738,9 +705,10 @@ In Google Cloud, APIs and Services, Credentials, your OAuth client:
 ### 4. Keep the data fresh
 
 `.github/workflows/refresh.yml` re-runs the whole scraper daily at 06:30 IST and commits
-whatever changed under `public/data`. That commit lands on `main`, which fires
-`deploy.yml`, so fresh data publishes itself. Set Settings, Actions, General, Workflow
-permissions to "Read and write" or the refresh job cannot push.
+whatever changed under `public/data`. That commit lands on `main`, and Vercel's Git
+integration publishes the fresh data. Set Settings, Actions, General, Workflow
+permissions to "Read and write" or the refresh job cannot push. This workflow updates
+data only; it does not deploy the site.
 
 The workflow does not have access to your `.cache/`, so it re-downloads the syllabus and
 fee PDFs on every run. That is slow but free, and it is why the scraper caches by URL
