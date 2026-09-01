@@ -96,6 +96,10 @@ export default function Sidebar({ view, who, session, table, open, onNavigate })
                   <Icon name="book" />Maths
                   <Icon name="ext" className="ext" />
                 </a>
+                <a href="https://pyq.iiest.wiki" className="external">
+                  <Icon name="file" />PYQs
+                  <Icon name="ext" className="ext" />
+                </a>
               </>
             ) : null}
           </div>
