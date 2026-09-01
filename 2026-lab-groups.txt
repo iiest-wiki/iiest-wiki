@@ -1,0 +1,56 @@
+IIEST Shibpur - 2026 batch (semester 1) lab group splits
+Generated from the UG 1st-semester roll sheets, 2026-27.
+Boundaries as configured in public/data/groups.json.
+
+SPLIT INTO TWO LAB GROUPS
+------------------------------------------------------------------------
+Code  Department                                     Group A   Group B
+------------------------------------------------------------------------
+CEB   Civil Engineering                              1-74      75+
+CSB   Computer Science and Technology                1-53      54+
+EEB   Electrical Engineering                         1-50      51+
+ETB   Electronics and Telecommunication Engineering  1-33      34+
+ITB   Information Technology                         1-50      51+
+MEB   Mechanical Engineering                         1-52      53+
+MMB   Metallurgy and Materials Engineering           1-24      25+
+
+  Where each boundary comes from
+  --------------------------------------------------------------------------
+  CEB: roll sheet -- Gr-A 1-74 (74 students), Gr-B 75-148 (74 students)
+  CSB: roll sheet -- Gr-A 1-53 (53 students), Gr-B 54-105 (52 students)
+  EEB: roll sheet -- Gr-A 1-50 (49 students), Gr-B 51-100 (50 students)
+  ETB: INFERRED -- the roll sheet has no group column. 66 students (1-66);
+      split at the midpoint, matching the near-equal halves every
+      department that does publish groups uses. Replace when known.
+  ITB: roll sheet -- Gr-A 1-50 (50 students), Gr-B 51-98 (48 students)
+  MEB: INFERRED -- the roll sheet has no group column. 103 students (1-103);
+      split at the midpoint, matching the near-equal halves every
+      department that does publish groups uses. Replace when known.
+  MMB: roll sheet -- Gr-A 1-24 (24 students), Gr-B 25-48 (24 students)
+
+NOT SPLIT - one timetable for the whole department
+------------------------------------------------------------------------
+AMB   Aerospace Engineering and Applied Mechanics    roll count unknown (see note)
+APB   Architecture and Planning                      rolls 1-23 (23 students)
+CHB   Chemistry                                      rolls 2-21 (20 students)
+ESB   Earth Sciences                                 rolls 1-26 (25 students)
+MAB   Mathematics and Computing                      rolls 1-39 (39 students)
+MNB   Mining Engineering                             rolls 1-49 (49 students)
+PHB   Physics                                        rolls 2-28 (27 students)
+
+NOTES
+------------------------------------------------------------------------
+* Every published group is one contiguous run of roll numbers, so the
+  min/max ranges in groups.json hold them exactly. Validated against all
+  498 students in the five departments whose sheets carry groups.
+* 2026CEB070 is listed in BOTH the Gr-A and Gr-B sheets. Group A runs 1-74
+  unbroken and Group B 75-148 unbroken, so the Gr-B row is read as the slip
+  and that roll resolves to Group A.
+* EEB Group A has no roll 8, and ESB starts at 3 and PHB/CHB at 2. Gaps in
+  the roll list do not affect the ranges.
+* Physics, Chemistry and Earth Sciences share one schedule; their three
+  calendars are identical apart from the name.
+* Civil and Metallurgy share lectures and differ only in the afternoon lab.
+* Aerospace HAS a timetable (AMB-2026.ics, 16 slots). Only its roll sheet is
+  missing from the downloads, so the student count is unknown. It does not
+  split into lab groups, so nothing depends on that sheet.
