@@ -92,6 +92,10 @@ export default function Sidebar({ view, who, session, table, open, onNavigate })
                   <Icon name="dog" />Dogs
                   <Icon name="ext" className="ext" />
                 </a>
+                <a href="https://maths.iiest.wiki" className="external">
+                  <Icon name="book" />Maths
+                  <Icon name="ext" className="ext" />
+                </a>
               </>
             ) : null}
           </div>
