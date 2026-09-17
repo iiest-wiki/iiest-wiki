@@ -435,6 +435,7 @@ h3 { font-size: .95rem;  font-weight: 650; letter-spacing: -0.015em; margin: 0; 
 .select option { background: var(--surface-2); }
 
 .btn, .toggle {
+  display: inline-flex; align-items: center; gap: 8px;
   background: var(--surface); color: var(--text); border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm); padding: 9px 16px; font: inherit; font-size: .85rem;
   font-weight: 550; cursor: pointer; box-shadow: var(--edge);
@@ -745,6 +746,114 @@ h3 { font-size: .95rem;  font-weight: 650; letter-spacing: -0.015em; margin: 0; 
 /* Trim the card down to what actually fits the slot's height. */
 .wk-item.short .wk-code, .wk-item.short .wk-profs { display: none; }
 .wk-item.mid .wk-profs { display: none; }
+
+/* Editing your own copy of the routine. Nothing here touches the published
+   timetable; it all renders patches the student owns. */
+.wk-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px 18px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.wk-weeks { display: flex; align-items: center; gap: 6px; }
+.wk-week { font-size: .86rem; font-weight: 650; min-width: 150px; text-align: center; }
+.btn.small { padding: 6px 11px; font-size: .78rem; }
+.btn.big { padding: 13px 22px; font-size: .95rem; border-radius: var(--radius); }
+.btn.big .ico { width: 18px; height: 18px; }
+
+.wk-editing {
+  display: grid; gap: 14px; justify-items: start;
+  border: 1px solid var(--accent-line); background: var(--accent-bg);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 18px;
+}
+.wk-editing > p { margin: 0; font-size: .845rem; color: var(--dim); max-width: 72ch; }
+
+.wk-add {
+  display: inline-grid; place-items: center; margin-left: 6px; vertical-align: -4px;
+  width: 20px; height: 20px; padding: 0; cursor: pointer;
+  border: 1px solid var(--accent-line); border-radius: 6px;
+  background: var(--accent-bg); color: var(--accent-2);
+}
+.wk-add:hover { background: var(--accent); color: #fff; border-color: transparent; }
+.wk-add .ico { width: 13px; height: 13px; }
+
+/* In edit mode the whole card is the target, so a class keeps its layout and
+   picks up nothing but a hit area and a ring. */
+.wk-hit {
+  position: absolute; inset: 0; border: 0; padding: 0;
+  background: none; cursor: pointer; border-radius: inherit;
+}
+.wk-cal.editing .wk-item { transition: box-shadow .15s var(--ease); }
+.wk-cal.editing .wk-item:hover,
+.wk-cal.editing .wk-item:focus-within { box-shadow: 0 0 0 2px var(--accent-line); }
+.wk-cal.editing .wk-profs { pointer-events: none; }
+
+/* A class this student added or moved, so it never reads as the published one. */
+.wk-item.mine {
+  border-top-style: dashed; border-right-style: dashed; border-bottom-style: dashed;
+}
+.wk-item.mine .wk-name { padding-right: 12px; }
+.wk-item.mine::after {
+  content: ""; position: absolute; top: 7px; right: 7px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+}
+
+.wk-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; width: 100%; }
+.wk-changes-none { margin: 0; }
+.wk-changes li {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  border-top: 1px solid var(--accent-line); padding-top: 9px;
+}
+.chg-tag {
+  flex: none; font: 700 .62rem/1 var(--mono); letter-spacing: .1em;
+  text-transform: uppercase; border-radius: 5px; padding: 5px 7px;
+  background: var(--accent-bg); color: var(--accent-2);
+  border: 1px solid var(--accent-line);
+}
+.chg-tag.added   { background: var(--good-bg); color: var(--good); border-color: var(--good-line); }
+.chg-tag.removed { background: var(--bad-bg);  color: var(--bad);  border-color: var(--bad-line); }
+.chg-what { display: grid; gap: 1px; min-width: 0; flex: 1 1 200px; }
+.chg-what strong { font-size: .86rem; font-weight: 650; }
+.chg-acts { display: flex; gap: 12px; flex: none; }
+
+.modal-wrap { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; }
+.modal-scrim { position: absolute; inset: 0; background: rgba(3, 4, 8, .72); }
+.modal {
+  position: relative; width: min(620px, 100%);
+  max-height: calc(100dvh - 36px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); box-shadow: var(--lift);
+}
+.modal-head {
+  position: sticky; top: 0; z-index: 1; background: var(--panel);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 15px 18px; border-bottom: 1px solid var(--line-soft);
+}
+.modal-head h3 { margin: 0; font-size: 1rem; font-weight: 650; }
+.modal-body {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px; padding: 18px;
+}
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > span, .field legend {
+  font-size: .76rem; font-weight: 600; color: var(--dim); padding: 0;
+}
+.field .input, .field .select { min-width: 0; width: 100%; }
+.field.wide { grid-column: 1 / -1; }
+.input[type="date"], .input[type="time"] { color-scheme: dark; }
+.radios {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 9px 20px;
+  border: 0; margin: 0; padding: 0;
+}
+.radios legend { flex: 1 1 100%; }
+.radios label { display: flex; align-items: center; gap: 7px; font-size: .86rem; }
+.radios input { accent-color: var(--accent); width: 16px; height: 16px; }
+.modal-note { grid-column: 1 / -1; margin: 0; font-size: .8rem; color: var(--dim); line-height: 1.6; }
+.modal-fault { grid-column: 1 / -1; margin: 0; font-size: .82rem; color: var(--bad); }
+.modal-foot {
+  position: sticky; bottom: 0; background: var(--panel);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-top: 1px solid var(--line-soft);
+}
+.modal-actions { display: flex; gap: 9px; margin-left: auto; }
 
 table { border-collapse: collapse; width: 100%; font-size: .855rem; }
 th {
@@ -1097,6 +1206,14 @@ code {
   .wk-item { padding: 7px 8px; }
   .wk-name { font-size: .78rem; }
   .wk-room { padding: 3px 5px; }
+  .wk-weeks { width: 100%; }
+  .wk-week { flex: 1; min-width: 0; }
+  .wk-bar .btn.big { width: 100%; }
+  .modal-body { grid-template-columns: 1fr; }
+  .modal-foot { justify-content: stretch; }
+  .modal-foot .btn.danger { width: 100%; justify-content: center; text-align: center; }
+  .modal-actions { width: 100%; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
   .input.select { flex: 1 1 calc(50% - 5px); }
   .controls .btn, .controls .toggle { flex: 1 1 auto; }
 }

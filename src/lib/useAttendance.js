@@ -4,11 +4,17 @@ import { configured, ATTENDANCE_TARGET } from "./config.js";
 import { isoDate, addDays, weekdayOf, fmtDate } from "./util.js";
 import { sessionFor, dayState, graded } from "./calendar.js";
 import { loadJson } from "./data.js";
+import { applyEdits, isExtra } from "./timetable.js";
+import { useEdits } from "./useEdits.js";
 import { useUser } from "./useAuth.js";
 import { enqueue, drop, flush, onReconnect, pending } from "./queue.js";
 import { event } from "./analytics.js";
 
-export const slotId = (slot) => `${slot.day}-${slot.start}`;
+// Published classes keep the day-and-time id their marks were already stored
+// under. A class a student added for themselves is identified by its own ref
+// instead, so two of them can share a time slot without colliding.
+export const slotId = (slot) =>
+  (isExtra(slot.ref || "") ? slot.ref : `${slot.day}-${slot.start}`);
 export const markKey = (code, date, slot) => `${code}|${date}|${slot}`;
 export const today = () => isoDate(new Date());
 
@@ -39,6 +45,7 @@ function pickTable(timetables, groups, roll) {
 
 export function useAttendance() {
   const who = useUser();
+  const edits = useEdits();
   const [sets, setSets] = useState(null);
   const [marks, setMarks] = useState(() => new Map());
   const [error, setError] = useState(null);
@@ -94,13 +101,16 @@ export function useAttendance() {
     return () => { alive = false; };
   }, [who, table]);
 
+  // The published routine for that day, then whatever the student has changed
+  // about it, so every view downstream sees one already-resolved schedule.
   const slotsOn = useCallback((iso) => {
     if (!table) return [];
     const versions = table.versions || [{ from: "", until: "", slots: table.slots }];
     const hit = versions.find((v) =>
       (!v.from || iso >= v.from) && (!v.until || iso < v.until));
-    return (hit || versions[versions.length - 1]).slots;
-  }, [table]);
+    const base = (hit || versions[versions.length - 1]).slots;
+    return applyEdits(base, edits.list, iso);
+  }, [table, edits.list]);
 
   const classesFor = useCallback((iso) => {
     if (!table || !session) return [];
@@ -242,5 +252,6 @@ export function useAttendance() {
   }, [who, loading]);
 
   return { who, sets, table, parts, session, ctx, rows, totals,
-           classesFor, statusFor, storedStatus, setMark, error, loading };
+           classesFor, slotsOn, statusFor, storedStatus, setMark, edits,
+           error, loading };
 }

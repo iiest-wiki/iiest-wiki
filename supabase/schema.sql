@@ -34,6 +34,24 @@ create table if not exists public.attendance (
   primary key (student, course_code, class_on, slot)
 );
 
+-- A student's own changes to their routine. Never an edit in place: each row is
+-- a patch on one class that starts on a date the student picks, so any day
+-- before it still resolves against the class as it was and attendance already
+-- marked keeps the meaning it had. ref names the class ("day|start|code" for one
+-- the department published, "x:..." for one the student added themselves),
+-- action is 'set' to replace it or 'drop' to take it off from that date on.
+create table if not exists public.schedule_edits (
+  student    uuid not null references public.profiles on delete cascade,
+  id         text not null,
+  ref        text not null,
+  action     text not null check (action in ('set', 'drop')),
+  starts_on  date not null,
+  ends_on    date,
+  slot       jsonb,
+  saved_at   timestamptz not null default now(),
+  primary key (student, id)
+);
+
 create table if not exists public.club_follows (
   student    uuid not null references public.profiles on delete cascade,
   club       text not null,
@@ -95,11 +113,13 @@ create trigger attendance_touch before update on public.attendance
 
 alter table public.profiles           enable row level security;
 alter table public.attendance         enable row level security;
+alter table public.schedule_edits     enable row level security;
 alter table public.club_follows       enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.profiles           to authenticated;
 grant select, insert, update, delete on public.attendance         to authenticated;
+grant select, insert, update, delete on public.schedule_edits     to authenticated;
 grant select, insert, delete         on public.club_follows       to authenticated;
 
 drop policy if exists profiles_read_own on public.profiles;
@@ -116,6 +136,11 @@ create policy profiles_update_own on public.profiles
 
 drop policy if exists attendance_own on public.attendance;
 create policy attendance_own on public.attendance
+  for all using (student = auth.uid() and public.is_student())
+  with check (student = auth.uid() and public.is_student());
+
+drop policy if exists schedule_edits_own on public.schedule_edits;
+create policy schedule_edits_own on public.schedule_edits
   for all using (student = auth.uid() and public.is_student())
   with check (student = auth.uid() and public.is_student());
 
