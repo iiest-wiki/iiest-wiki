@@ -1,15 +1,17 @@
+import { useState } from "react";
+import Icon from "../components/Icon.jsx";
+import SlotForm from "../components/SlotForm.jsx";
 import Gate, { Alert } from "../components/Gate.jsx";
 import { DAY_NAMES } from "../lib/calendar.js";
+import { describe, refOf } from "../lib/timetable.js";
+import { addDays, fmtDate, isoDate, toMin, weekdayOf } from "../lib/util.js";
 import { useNow } from "../lib/useNow.js";
 
 const LUNCH = { start: "12:40", end: "13:50" };
 const DAYS = [0, 1, 2, 3, 4];
 const FALLBACK = { start: "09:00", end: "16:35" };
 
-const toMin = (t) => {
-  const [h, m] = String(t).split(":").map(Number);
-  return h * 60 + m;
-};
+const mondayOf = (iso) => addDays(iso, -weekdayOf(iso));
 
 function label(min) {
   const h = Math.floor(min / 60);
@@ -52,9 +54,74 @@ function layout(items) {
   return placed;
 }
 
+function when(edit) {
+  const slot = edit.slot || {};
+  if (edit.action === "drop") {
+    return `off your timetable from ${fmtDate(edit.starts_on)}`;
+  }
+  const day = DAY_NAMES[slot.day] || "";
+  const repeat = slot.weekly === false ? `on ${day}` : `every ${day}`;
+  return `${repeat}, ${slot.start} to ${slot.end}, from ${fmtDate(edit.starts_on)}`;
+}
+
+// Every change a student has made, newest first.
+function Changes({ edits, onEdit }) {
+  const list = [...edits.list].sort((a, b) =>
+    b.starts_on.localeCompare(a.starts_on) ||
+    String(b.saved_at || "").localeCompare(String(a.saved_at || "")));
+
+  if (!list.length) {
+    return (
+      <p className="wk-changes-none dim tiny">
+        Nothing changed yet. Your timetable is exactly as the department published it.
+      </p>
+    );
+  }
+  return (
+    <ul className="wk-changes">
+      {list.map((e) => {
+        const what = describe(e, edits.list);
+        return (
+          <li key={e.id}>
+            <span className={`chg-tag ${what.toLowerCase()}`}>{what}</span>
+            <span className="chg-what">
+              <strong>{(e.slot || {}).title || "Class"}</strong>
+              <span className="dim tiny">{when(e)}</span>
+            </span>
+            <span className="chg-acts">
+              <button type="button" className="linkish" onClick={() => onEdit(e)}>Edit</button>
+              <button type="button" className="linkish"
+                      onClick={() => edits.remove(e.id)}>Undo</button>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function Weekly({ att, onFaculty }) {
+  const now = useNow();
+  const todayIso = isoDate(now);
+  const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso));
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null);
+
   const table = att.table;
-  const slots = table?.slots || [];
+  const thisWeek = weekStart === mondayOf(todayIso);
+
+  // Resolved one weekday at a time rather than once for the whole week, because
+  // a change can take effect on the Wednesday and a one-off only exists on a date.
+  const columns = DAYS.map((day) => {
+    const iso = addDays(weekStart, day);
+    return {
+      day,
+      iso,
+      items: att.slotsOn(iso)
+        .filter((s) => s.day === day && (s.weekly !== false || s.from === iso)),
+    };
+  });
+  const slots = columns.flatMap((c) => c.items);
 
   const opens = slots.map((s) => toMin(s.start));
   const closes = slots.map((s) => toMin(s.end));
@@ -70,14 +137,26 @@ export default function Weekly({ att, onFaculty }) {
   const ticks = [];
   for (let t = top + 60; t < bottom; t += 60) ticks.push(t);
 
-  const now = useNow();
   const today = (now.getDay() + 6) % 7;
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const onGrid = DAYS.includes(today) && nowMin >= top && nowMin <= bottom;
+  const onGrid = thisWeek && DAYS.includes(today) && nowMin >= top && nowMin <= bottom;
 
   const lunchFrom = Math.max(toMin(LUNCH.start), top);
   const lunchTo = Math.min(toMin(LUNCH.end), bottom);
   const hasLunch = lunchTo > lunchFrom;
+
+  // Never default a change to a date that is already behind us; the field
+  // itself still lets a student backdate one deliberately.
+  const notBefore = (iso) => (iso > todayIso ? iso : todayIso);
+  const addOn = (day) => setDraft({
+    slot: { day, start: "09:00", end: "09:55" },
+    from: notBefore(addDays(weekStart, day)),
+  });
+  const change = (slot) => setDraft({ ref: refOf(slot), slot, from: todayIso });
+  const revise = (edit) => setDraft({
+    id: edit.id, ref: edit.ref, action: edit.action,
+    slot: edit.slot, from: edit.starts_on,
+  });
 
   return (
     <section className="view">
@@ -88,18 +167,64 @@ export default function Weekly({ att, onFaculty }) {
         </p>
       </div>
       {att.error ? <Alert title="Attendance problem. " detail={att.error.message} /> : null}
+      {att.edits.error ? (
+        <Alert title="Your timetable changes are not saving. "
+               detail={att.edits.error.message} />
+      ) : null}
       <Gate who={att.who} table={att.table} parts={att.parts}>
         <div className="card-plain">
+          <div className="wk-bar">
+            <div className="wk-weeks">
+              <button className="icon-btn" aria-label="Previous week"
+                      onClick={() => setWeekStart(addDays(weekStart, -7))}>&#8249;</button>
+              <span className="wk-week">
+                {thisWeek ? "This week" : `Week of ${fmtDate(weekStart)}`}
+              </span>
+              <button className="icon-btn" aria-label="Next week"
+                      onClick={() => setWeekStart(addDays(weekStart, 7))}>&#8250;</button>
+              {thisWeek ? null : (
+                <button className="btn small"
+                        onClick={() => setWeekStart(mondayOf(todayIso))}>Today</button>
+              )}
+            </div>
+            <button className={`btn big${editing ? "" : " primary"}`}
+                    aria-pressed={editing} onClick={() => setEditing(!editing)}>
+              <Icon name={editing ? "check" : "edit"} />
+              {editing ? "Done editing" : "Edit my timetable"}
+            </button>
+          </div>
+
+          {editing ? (
+            <div className="wk-editing">
+              <p>
+                Pick any class to move, rename or take it off, and say which date the
+                change started on. Everything before that date stays as it was, so
+                attendance you have already marked does not shift.
+              </p>
+              <button className="btn primary" onClick={() => addOn(today > 4 ? 0 : today)}>
+                <Icon name="plus" />Add a class
+              </button>
+              <Changes edits={att.edits} onEdit={revise} />
+            </div>
+          ) : null}
+
           <div className="wk-meta">
             <span>{label(dayStart)} to {label(dayEnd)}</span>
             <span className="dim">Lunch {label(toMin(LUNCH.start))} to {label(toMin(LUNCH.end))}</span>
           </div>
-          <div className="wk-cal">
+          <div className={`wk-cal${editing ? " editing" : ""}`}>
             <div className="wk-corner" />
-            {DAYS.map((day) => (
-              <div className={`wk-head${day === today ? " today" : ""}`} key={`head-${day}`}>
+            {columns.map(({ day }) => (
+              <div className={`wk-head${thisWeek && day === today ? " today" : ""}`}
+                   key={`head-${day}`}>
                 <span className="wk-day-long">{DAY_NAMES[day]}</span>
                 <span className="wk-day-short">{DAY_NAMES[day].slice(0, 3)}</span>
+                {editing ? (
+                  <button className="wk-add" onClick={() => addOn(day)}
+                          aria-label={`Add a class on ${DAY_NAMES[day]}`}>
+                    <Icon name="plus" />
+                  </button>
+                ) : null}
               </div>
             ))}
 
@@ -111,10 +236,10 @@ export default function Weekly({ att, onFaculty }) {
               <span className="wk-tick last" style={{ top: at(bottom) }}>{label(bottom)}</span>
             </div>
 
-            {DAYS.map((day) => {
-              const items = layout(slots.filter((s) => s.day === day));
+            {columns.map(({ day, items: onDay }) => {
+              const items = layout(onDay);
               return (
-                <div className={`wk-col${day === today ? " today" : ""}`} key={day}>
+                <div className={`wk-col${thisWeek && day === today ? " today" : ""}`} key={day}>
                   {ticks.map((t) => (
                     <i className="wk-rule" style={{ top: at(t) }} key={t} />
                   ))}
@@ -135,8 +260,8 @@ export default function Weekly({ att, onFaculty }) {
                     const size = mins < 70 ? "short" : mins < 110 ? "mid" : "long";
                     return (
                       <article
-                        className={`wk-item ${s.kind.toLowerCase()} ${size}`}
-                        key={`${s.code}-${s.start}-${i}`}
+                        className={`wk-item ${s.kind.toLowerCase()} ${size}${s.mine ? " mine" : ""}`}
+                        key={`${refOf(s)}-${i}`}
                         style={{
                           top: at(from),
                           height: tall(mins),
@@ -150,7 +275,7 @@ export default function Weekly({ att, onFaculty }) {
                           <span className="wk-time">{s.start} - {s.end}</span>
                           {s.room ? <span className="wk-room">{s.room}</span> : null}
                         </div>
-                        {s.profs.length ? (
+                        {(s.profs || []).length ? (
                           <div className="wk-profs">
                             {s.profs.map((p, n) => (
                               <span key={p}>
@@ -159,6 +284,10 @@ export default function Weekly({ att, onFaculty }) {
                               </span>
                             ))}
                           </div>
+                        ) : null}
+                        {editing ? (
+                          <button className="wk-hit" onClick={() => change(s)}
+                                  aria-label={`Change ${s.title}`} />
                         ) : null}
                       </article>
                     );
@@ -169,6 +298,9 @@ export default function Weekly({ att, onFaculty }) {
           </div>
         </div>
       </Gate>
+      {draft ? (
+        <SlotForm draft={draft} onClose={() => setDraft(null)} onSave={att.edits.save} />
+      ) : null}
     </section>
   );
 }

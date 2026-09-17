@@ -44,13 +44,15 @@ src/
   main.jsx           mounts React, runs auth init
   App.jsx            shell, hash router, view switch
   styles.css
-  components/        Sidebar, Icon, Gate
+  components/        Sidebar, Icon, Gate, SlotForm
   views/             Overview, Weekly, Courses, Faculty, Notices,
                      Syllabus, Fees, Guide
   lib/
     config.js        your Supabase URL and anon key go here
     auth.js          Google sign-in and the REST helper
     useAttendance.js attendance state, marking and the percentage maths
+    timetable.js     composes a student's own edits onto the published routine
+    useEdits.js      those edits, cached locally and synced to Postgres
     calendar.js      session, holiday, exam and day state logic
     data.js          JSON fetch and cache hooks
     router.js        hash routing
@@ -255,6 +257,32 @@ rather than editing it; that is what makes past percentages stay correct.
 
 A file with no `@date` is the base version. If that is the only file, nothing changes
 from before.
+
+### Changes a student makes for themselves
+
+Published routines go stale in ways no department ever announces: an elective swaps
+rooms, a lab moves an hour, a tutorial gets added that only half the batch attends. The
+**Edit my timetable** button on the Weekly Schedule tab lets any signed-in student fix
+their own copy, and it uses the same effective-date idea the `.ics` versions do.
+
+Picking a class opens an editor for its name, code, type, time, room and teachers, plus
+the one field that matters most: **the date the change started**. Nothing is overwritten.
+Each change is stored as a patch on one class that begins on that date, so every day
+before it still resolves against the class as it was and attendance already marked keeps
+the meaning it had. The same editor removes a class from a date onwards, and **Add a
+class** puts on something the routine never had, either every week or as a one-off on a
+single date.
+
+Extra classes count towards attendance like any other, unless their type is set to
+Activity, which is the same rule NSS, NCC, PT and Yoga already follow. The Weekly
+Schedule tab has arrows to step through the term a week at a time, so a change can be
+checked on both sides of the date it took effect.
+
+Changes live in `schedule_edits`, one row per patch, private to the student under row
+level security. They are cached in `localStorage` as well, which is what makes the
+editor work offline: anything written while the connection is down is replayed the next
+time the account loads. Nothing a student does here is visible to anyone else or alters
+the published `.ics` for their batch.
 
 ### Lab groups
 
@@ -535,8 +563,8 @@ recurring cost.
 key from Settings, API.
 
 **2. Load the schema.** Paste `supabase/schema.sql` into the SQL editor and run it. It
-creates `profiles` and `attendance`, grants them to the `authenticated` role, turns on
-row level security, and adds a trigger that parses
+creates `profiles`, `attendance` and `schedule_edits`, grants them to the
+`authenticated` role, turns on row level security, and adds a trigger that parses
 `2025CSB042.arjun@students.iiests.ac.in` into a roll number, joining year and department
 on first sign-in. The file is safe to re-run.
 
@@ -581,7 +609,9 @@ Two things that are easy to get wrong:
   statements in the schema, every request fails with `42501 permission denied` no matter
   how correct the policies are. That is why the schema grants explicitly.
 - **Attendance is private to each student.** The `attendance_own` policy scopes every
-  read and write to `student = auth.uid()`, so no one can see anyone else's marks.
+  read and write to `student = auth.uid()`, so no one can see anyone else's marks. The
+  `schedule_edits_own` policy does the same for the changes a student makes to their own
+  timetable.
 
 ### What it costs
 

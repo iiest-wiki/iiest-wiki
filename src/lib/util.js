@@ -39,3 +39,14 @@ export function addDays(iso, n) {
 export function weekdayOf(iso) {
   return (new Date(`${iso}T00:00:00`).getDay() + 6) % 7;
 }
+
+// "09:55" -> 595. Times on the routine are always local wall clock, never dates.
+export const toMin = (t) => {
+  const [h, m] = String(t).split(":").map(Number);
+  return h * 60 + m;
+};
+
+export const fromMin = (min) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
+};
